@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1">
+
+    <title>Escanear QR - Minuta Electrónica</title>
+
+    <script
+        src="https://unpkg.com/html5-qrcode">
+    </script>
+
+    <style>
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            padding: 20px;
+            background: #f4f6f8;
+            font-family: Arial, sans-serif;
+            text-align: center;
+        }
+
+        h2 {
+            margin-top: 10px;
+            color: #0b3d91;
+        }
+
+        #lectorQR {
+            width: 100%;
+            max-width: 500px;
+            margin: 20px auto;
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        #mensajeQR {
+            margin-top: 15px;
+            font-size: 16px;
+            color: #555;
+        }
+
+        .cerrar {
+            margin-top: 15px;
+            padding: 12px 25px;
+            border: none;
+            border-radius: 8px;
+            background: #d32f2f;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        .cerrar:hover {
+            opacity: 0.9;
+        }
+
+    </style>
+
+</head>
+
+<body>
+
+    <h2>📷 Escanear código QR</h2>
+
+    <div id="lectorQR"></div>
+
+    <div id="mensajeQR">
+        Apunte la cámara hacia el código QR.
+    </div>
+
+    <button
+        type="button"
+        class="cerrar"
+        onclick="cerrarScanner()">
+
+        ❌ Cancelar
+
+    </button>
+
+
+    <script>
+
+        let scannerQR = null;
+        let QRProcesado = false;
+
+
+        function iniciarScanner() {
+
+            scannerQR =
+                new Html5Qrcode(
+                    "lectorQR"
+                );
+
+
+            scannerQR.start(
+
+                {
+                    facingMode: "environment"
+                },
+
+                {
+                    fps: 10,
+
+                    qrbox: {
+                        width: 250,
+                        height: 250
+                    }
+                },
+
+                function(textoQR) {
+
+                    if (QRProcesado) {
+                        return;
+                    }
+
+                    QRProcesado = true;
+
+
+                    document.getElementById(
+                        "mensajeQR"
+                    ).innerHTML =
+                        "✅ QR detectado. Procesando...";
+
+
+                    scannerQR.stop()
+
+                        .then(
+                            function() {
+
+                                enviarQR(
+                                    textoQR
+                                );
+
+                            }
+                        )
+
+                        .catch(
+                            function() {
+
+                                enviarQR(
+                                    textoQR
+                                );
+
+                            }
+                        );
+
+                },
+
+                function(errorMessage) {
+
+                    /*
+                     * No mostramos los errores
+                     * mientras la cámara busca
+                     * el código QR.
+                     */
+
+                }
+
+            )
+
+            .catch(
+                function(error) {
+
+                    console.error(
+                        "Error iniciando cámara:",
+                        error
+                    );
+
+
+                    document.getElementById(
+                        "mensajeQR"
+                    ).innerHTML =
+                        "❌ No se pudo iniciar la cámara.";
+
+                }
+            );
+
+        }
+
+
+        function enviarQR(textoQR) {
+
+            if (
+                window.opener &&
+                !window.opener.closed
+            ) {
+
+                window.opener.postMessage(
+
+                    {
+                        tipo:
+                            "QR_ESCANEADO",
+
+                        texto:
+                            textoQR
+                    },
+
+                    "*"
+
+                );
+
+
+                setTimeout(
+                    function() {
+
+                        window.close();
+
+                    },
+                    300
+                );
+
+            } else {
+
+                document.getElementById(
+                    "mensajeQR"
+                ).innerHTML =
+                    "⚠️ No se encontró la aplicación que abrió este lector.";
+
+            }
+
+        }
+
+
+        function cerrarScanner() {
+
+            if (scannerQR) {
+
+                scannerQR.stop()
+
+                    .catch(
+                        function() {}
+                    )
+
+                    .finally(
+                        function() {
+
+                            window.close();
+
+                        }
+                    );
+
+            } else {
+
+                window.close();
+
+            }
+
+        }
+
+
+        window.addEventListener(
+            "load",
+            function() {
+
+                iniciarScanner();
+
+            }
+        );
+
+    </script>
+
+</body>
+
+</html>
