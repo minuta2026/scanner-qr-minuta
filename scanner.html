@@ -188,47 +188,60 @@
         }
 
 
-        function enviarQR(textoQR) {
+function enviarQR(textoQR) {
 
-            if (
-                window.opener &&
-                !window.opener.closed
-            ) {
+    const parametros =
+        new URLSearchParams(
+            window.location.search
+        );
 
-                window.opener.postMessage(
-
-                    {
-                        tipo:
-                            "QR_ESCANEADO",
-
-                        texto:
-                            textoQR
-                    },
-
-                    "*"
-
-                );
+    const origen =
+        parametros.get("origen") || "inicio";
 
 
-                setTimeout(
-                    function() {
+    if (
+        window.opener &&
+        !window.opener.closed
+    ) {
 
-                        window.close();
+        window.opener.postMessage(
 
-                    },
-                    300
-                );
+            {
+                tipo:
+                    "QR_ESCANEADO",
 
-            } else {
+                texto:
+                    textoQR,
 
-                document.getElementById(
-                    "mensajeQR"
-                ).innerHTML =
-                    "⚠️ No se encontró la aplicación que abrió este lector.";
+                origen:
+                    origen
+            },
 
-            }
+            "*"
 
-        }
+        );
+
+
+        setTimeout(
+            function() {
+
+                window.close();
+
+            },
+            300
+        );
+
+    } else {
+
+        document.getElementById(
+            "mensajeQR"
+        ).innerHTML =
+            "⚠️ No se encontró la aplicación que abrió este lector.";
+
+    }
+
+}
+        
 
 
         function cerrarScanner() {
