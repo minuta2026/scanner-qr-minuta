@@ -41,7 +41,6 @@
             background: white;
             border-radius: 12px;
             overflow: hidden;
-            display: none;
         }
 
         #mensajeQR {
@@ -50,40 +49,17 @@
             color: #555;
         }
 
-        .opcionesQR {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 12px;
-            margin-top: 20px;
-        }
-
-        .usar-camara,
-        .cargar-imagen,
         .cerrar {
-            width: 220px;
-            padding: 12px 20px;
+            margin-top: 15px;
+            padding: 12px 25px;
             border: none;
             border-radius: 8px;
+            background: #d32f2f;
             color: white;
             font-size: 16px;
             cursor: pointer;
         }
 
-        .usar-camara {
-            background: #0b3d91;
-        }
-
-        .cargar-imagen {
-            background: #2e7d32;
-        }
-
-        .cerrar {
-            background: #d32f2f;
-        }
-
-        .usar-camara:hover,
-        .cargar-imagen:hover,
         .cerrar:hover {
             opacity: 0.9;
         }
@@ -99,40 +75,17 @@
     <div id="lectorQR"></div>
 
     <div id="mensajeQR">
-        Seleccione una opción para continuar.
+        Apunte la cámara hacia el código QR.
     </div>
 
-    <div class="opcionesQR">
+    <button
+        type="button"
+        class="cerrar"
+        onclick="cerrarScanner()">
 
-        <button
-            type="button"
-            class="usar-camara"
-            onclick="iniciarScanner()">
-            📷 Usar cámara
-        </button>
+        ❌ Cancelar
 
-        <input
-            type="file"
-            id="archivoQR"
-            accept="image/*"
-            style="display:none"
-            onchange="leerImagenQR(this)">
-
-        <button
-            type="button"
-            class="cargar-imagen"
-            onclick="document.getElementById('archivoQR').click()">
-            🖼️ Cargar imagen
-        </button>
-
-        <button
-            type="button"
-            class="cerrar"
-            onclick="cerrarScanner()">
-            ❌ Cancelar
-        </button>
-
-    </div>
+    </button>
 
 
     <script>
@@ -149,31 +102,27 @@
 
             QRProcesado = false;
 
-            document.getElementById(
-                "lectorQR"
-            ).style.display = "block";
-
-            document.getElementById(
-                "mensajeQR"
-            ).innerHTML =
-                "Apunte la cámara hacia el código QR.";
-
             scannerQR =
                 new Html5Qrcode(
                     "lectorQR"
                 );
 
+
             scannerQR.start(
+
                 {
                     facingMode: "environment"
                 },
+
                 {
                     fps: 10,
+
                     qrbox: {
                         width: 250,
                         height: 250
                     }
                 },
+
                 function(textoQR) {
 
                     if (QRProcesado) {
@@ -182,12 +131,15 @@
 
                     QRProcesado = true;
 
+
                     document.getElementById(
                         "mensajeQR"
                     ).innerHTML =
                         "✅ QR detectado. Procesando...";
 
-                    scannerQR.stop()
+
+                    scannerQR
+                        .stop()
                         .then(function() {
 
                             scannerQR = null;
@@ -208,12 +160,14 @@
                         });
 
                 },
+
                 function(errorMessage) {
 
                     // Errores normales
                     // mientras busca el QR.
 
                 }
+
             )
             .catch(function(error) {
 
@@ -223,10 +177,6 @@
                 );
 
                 scannerQR = null;
-
-                document.getElementById(
-                    "lectorQR"
-                ).style.display = "none";
 
                 document.getElementById(
                     "mensajeQR"
@@ -245,6 +195,7 @@
                     window.location.search
                 );
 
+
             const origen =
                 parametros.get("origen") ||
                 "inicio";
@@ -256,13 +207,17 @@
             ) {
 
                 window.opener.postMessage(
+
                     {
                         tipo: "QR_ESCANEADO",
                         texto: textoQR,
                         origen: origen
                     },
+
                     "*"
+
                 );
+
 
                 setTimeout(
                     function() {
@@ -279,136 +234,6 @@
                     "mensajeQR"
                 ).innerHTML =
                     "⚠️ No se encontró la aplicación que abrió este lector.";
-
-            }
-
-        }
-
-
-        function leerImagenQR(input) {
-
-            const archivo =
-                input.files[0];
-
-            if (!archivo) {
-                return;
-            }
-
-
-            if (
-                !archivo.type.startsWith("image/")
-            ) {
-
-                document.getElementById(
-                    "mensajeQR"
-                ).innerHTML =
-                    "❌ El archivo seleccionado no es una imagen.";
-
-                input.value = "";
-
-                return;
-
-            }
-
-
-            if (QRProcesado) {
-                return;
-            }
-
-            QRProcesado = true;
-
-
-            document.getElementById(
-                "lectorQR"
-            ).style.display = "none";
-
-
-            document.getElementById(
-                "mensajeQR"
-            ).innerHTML =
-                "⏳ Leyendo imagen...";
-
-
-            const procesarImagen =
-                function() {
-
-                    const lectorImagen =
-                        new Html5Qrcode(
-                            "lectorQR"
-                        );
-
-                    lectorImagen
-                        .scanFile(
-                            archivo,
-                            true
-                        )
-                        .then(
-                            function(textoQR) {
-
-                                lectorImagen.clear();
-
-                                document.getElementById(
-                                    "mensajeQR"
-                                ).innerHTML =
-                                    "✅ QR detectado. Procesando...";
-
-                                enviarQR(
-                                    textoQR
-                                );
-
-                            }
-                        )
-                        .catch(
-                            function(error) {
-
-                                console.error(
-                                    "Error leyendo imagen QR:",
-                                    error
-                                );
-
-                                lectorImagen.clear();
-
-                                QRProcesado = false;
-
-                                document.getElementById(
-                                    "mensajeQR"
-                                ).innerHTML =
-                                    "❌ No se encontró un código QR en la imagen.";
-
-                                input.value = "";
-
-                            }
-                        );
-
-                };
-
-
-            if (scannerQR) {
-
-                scannerQR
-                    .stop()
-                    .then(
-                        function() {
-
-                            scannerQR = null;
-
-                            procesarImagen();
-
-                        }
-                    )
-                    .catch(
-                        function() {
-
-                            scannerQR = null;
-
-                            procesarImagen();
-
-                        }
-                    );
-
-            } else {
-
-                procesarImagen();
 
             }
 
@@ -437,6 +262,18 @@
             }
 
         }
+
+
+        // INICIAR CÁMARA AUTOMÁTICAMENTE
+
+        window.addEventListener(
+            "load",
+            function() {
+
+                iniciarScanner();
+
+            }
+        );
 
     </script>
 
