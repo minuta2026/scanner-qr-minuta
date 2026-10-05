@@ -1,196 +1,191 @@
-function iniciarScanner() {
+async function iniciarScanner() {
 
-```
-/*
- * Si ya existe un lector,
- * no crear otro.
- */
+    if (!camaraActualId) {
+        console.error("No hay cámara seleccionada");
+        return;
+    }
 
-if (scannerQR) {
-    return;
-}
-
-
-QRProcesado = false;
-
-
-/*
- * Crear lector.
- */
-
-scannerQR = new Html5Qrcode("lectorQR");
-
-
-/*
- * Configuración del lector.
- *
- * NO forzamos 1920x1080.
- * Esto permite que el navegador
- * utilice correctamente la cámara
- * seleccionada y su enfoque automático.
- */
-
-const configuracion = {
-
-    fps: 10,
-
-
-    /*
-     * Área de lectura.
-     *
-     * Un poco más grande que antes,
-     * pero sin ocupar toda la imagen.
-     */
-
-    qrbox: function(
-        viewfinderWidth,
-        viewfinderHeight
-    ) {
-
-        let tamaño =
-            Math.min(
-                viewfinderWidth,
-                viewfinderHeight
-            ) * 0.70;
-
-
-        /*
-         * Tamaño mínimo.
-         */
-
-        tamaño = Math.max(
-            tamaño,
-            220
-        );
-
-
-        /*
-         * Tamaño máximo.
-         */
-
-        tamaño = Math.min(
-            tamaño,
-            350
-        );
-
-
-        return {
-
-            width: Math.floor(tamaño),
-
-            height: Math.floor(tamaño)
-
-        };
-
-    },
-
-
-    /*
-     * Evitar comportamiento de
-     * cámara invertida.
-     */
-
-    disableFlip: true
-
-};
-
-
-/*
- * IMPORTANTE:
- *
- * Utilizamos directamente el ID
- * de la cámara seleccionada.
- */
-
-scannerQR.start(
-
-    camaraActualId,
-
-    configuracion,
-
-
-    function(textoQR) {
-
-        /*
-         * Evitar múltiples lecturas.
-         */
-
-        if (QRProcesado) {
-            return;
+    // Si ya existe un scanner, detenerlo primero
+    if (scannerQR) {
+        try {
+            await scannerQR.stop();
+        } catch (e) {
+            console.warn("No se pudo detener el scanner anterior:", e);
         }
 
+        scannerQR = null;
+    }
 
-        QRProcesado = true;
+    QRProcesado = false;
 
+    scannerQR = new Html5Qrcode("lectorQR");
+
+    try {
+
+        await scannerQR.start(
+
+            camaraActualId,
+
+            {
+                fps: 15,
+
+                qrbox: {
+                    width: 280,
+                    height: 280
+                },
+
+                aspectRatio: 1.0,
+
+                disableFlip: false
+
+            },
+
+            function (textoQR) {
+
+                if (QRProcesado) {
+                    return;
+                }
+
+                QRProcesado = true;
+
+                document.getElementById("mensajeQR").innerHTML =
+                    "✅ QR detectado. Procesando...";
+
+                scannerQR.stop()
+                    .then(function () {
+
+                        scannerQR = null;
+
+                        enviarQR(textoQR);
+
+                    })
+                    .catch(function (error) {
+
+                        console.error(
+                            "Error deteniendo cámara:",
+                            error
+                        );
+
+                        scannerQR = null;
+
+                        enviarQR(textoQR);
+                    });
+
+            },
+
+            function (errorMessage) {
+                // Error normal mientras busca el QR
+            }
+
+        );
+
+        /*
+         * ==========================================
+         * MEJORAR ENFOQUE DE LA CÁMARA
+         * ==========================================
+         */
+
+        try {
+
+            const video =
+                document.querySelector(
+                    "#lectorQR video"
+                );
+
+            if (video) {
+
+                video.setAttribute(
+                    "autoplay",
+                    ""
+                );
+
+                video.setAttribute(
+                    "playsinline",
+                    ""
+                );
+
+                video.setAttribute(
+                    "muted",
+                    ""
+                );
+
+                /*
+                 * Intentar autofocus continuo
+                 */
+
+                const track =
+                    video.srcObject &&
+                    video.srcObject.getVideoTracks()[0];
+
+                if (track) {
+
+                    const capabilities =
+                        track.getCapabilities
+                            ? track.getCapabilities()
+                            : {};
+
+                    console.log(
+                        "Capacidades cámara:",
+                        capabilities
+                    );
+
+                    if (
+                        capabilities.focusMode &&
+                        capabilities.focusMode.includes(
+                            "continuous"
+                        )
+                    ) {
+
+                        await track.applyConstraints({
+
+                            advanced: [
+                                {
+                                    focusMode:
+                                        "continuous"
+                                }
+                            ]
+
+                        });
+
+                        console.log(
+                            "✅ Autofocus continuo activado"
+                        );
+
+                    }
+
+                }
+
+            }
+
+        } catch (error) {
+
+            console.warn(
+                "El dispositivo no permite configurar autofocus:",
+                error
+            );
+
+        }
 
         document.getElementById(
             "mensajeQR"
         ).innerHTML =
-            "✅ QR detectado. Procesando...";
-
-
-        /*
-         * Detener cámara.
-         */
-
-        scannerQR
-            .stop()
-
-            .then(function() {
-
-                scannerQR = null;
-
-                enviarQR(textoQR);
-
-            })
-
-            .catch(function(error) {
-
-                console.error(
-                    "Error deteniendo cámara:",
-                    error
-                );
-
-                scannerQR = null;
-
-                enviarQR(textoQR);
-
-            });
-
-    },
-
-
-    function(errorMessage) {
-
-        /*
-         * Estos errores son normales
-         * mientras busca un QR.
-         *
-         * No mostrar.
-         */
+            "📷 Cámara lista. Enfoca el código QR";
 
     }
 
-)
+    catch (error) {
 
+        console.error(
+            "Error iniciando cámara:",
+            error
+        );
 
-.catch(function(error) {
+        scannerQR = null;
 
-    console.error(
-        "Error iniciando cámara:",
-        error
-    );
+        document.getElementById(
+            "mensajeQR"
+        ).innerHTML =
+            "❌ No se pudo iniciar esta cámara.";
 
-
-    scannerQR = null;
-
-
-    document.getElementById(
-        "mensajeQR"
-    ).innerHTML =
-        "❌ No se pudo iniciar esta cámara.";
-
-});
-
-
+    }
 }
