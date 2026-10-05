@@ -158,6 +158,39 @@
 
 
     /* ================================
+       CONTROLES DE ENFOQUE
+    ================================= */
+
+    .controlesEnfoque {
+        display: flex;
+        justify-content: center;
+        gap: 10px;
+        margin-top: 12px;
+    }
+
+    .controlesEnfoque button {
+        border: none;
+        border-radius: 8px;
+        padding: 9px 14px;
+        background: #1769d1;
+        color: white;
+        font-size: 14px;
+        cursor: pointer;
+    }
+
+    .controlesEnfoque button:active {
+        transform: scale(0.97);
+    }
+
+    @media (max-width: 600px) {
+        .controlesEnfoque button {
+            padding: 8px 12px;
+            font-size: 13px;
+        }
+    }
+
+
+    /* ================================
        BOTÓN CERRAR
     ================================= */
 
@@ -669,34 +702,32 @@
     ===================================================== */
 
     /* =====================================================
-       ENFOQUE DE CÁMARA
+       ENFOQUE DE CÁMARA — MODO CERCANO
        ===================================================== */
 
     let intervaloEnfoque = null;
 
+    async function obtenerTrackCamara() {
 
-    async function configurarEnfoque() {
+        const video = document.querySelector("#lectorQR video");
+
+        if (!video || !video.srcObject) return null;
+
+        const tracks = video.srcObject.getVideoTracks();
+
+        if (!tracks || !tracks.length) return null;
+
+        return tracks[0];
+    }
+
+    async function enfoqueCercano() {
 
         try {
 
-            const video = document.querySelector("#lectorQR video");
+            const track = await obtenerTrackCamara();
 
-            if (!video || !video.srcObject) {
-                console.warn("No se encontró el video de la cámara.");
-                return;
-            }
-
-            const tracks = video.srcObject.getVideoTracks();
-
-            if (!tracks || !tracks.length) {
-                console.warn("No se encontró la pista de video.");
-                return;
-            }
-
-            const track = tracks[0];
-
-            if (!track.applyConstraints) {
-                console.warn("Este navegador no permite controlar el enfoque.");
+            if (!track || !track.applyConstraints) {
+                console.warn("El navegador no permite controlar el enfoque.");
                 return;
             }
 
@@ -704,25 +735,19 @@
                 ? track.getCapabilities()
                 : {};
 
-            console.log("📷 Capacidades de cámara:", capabilities);
+            console.log("📷 Capacidades:", capabilities);
 
-            const advanced = [];
-
-            /*
-             * Primero pedimos enfoque continuo.
-             * Es la opción más importante para leer QR de cerca.
-             */
-            if (
-                Array.isArray(capabilities.focusMode) &&
-                capabilities.focusMode.includes("continuous")
-            ) {
-                advanced.push({ focusMode: "continuous" });
-            }
+            const modos = Array.isArray(capabilities.focusMode)
+                ? capabilities.focusMode
+                : [];
 
             /*
-             * Algunos teléfonos exponen focusDistance.
-             * Si existe, acercamos inicialmente el punto de enfoque
-             * hacia la zona cercana sin usar valores fuera del rango.
+             * Si el teléfono permite enfoque manual y focusDistance,
+             * usamos el valor MÁS CERCANO posible.
+             *
+             * IMPORTANTE:
+             * focusDistance está expresado en metros.
+             * Un valor menor = objeto más cerca.
              */
             if (
                 capabilities.focusDistance &&
@@ -733,83 +758,154 @@
                 const min = capabilities.focusDistance.min;
                 const max = capabilities.focusDistance.max;
 
-                if (max > min) {
-                    const distanciaCercana =
-                        min + ((max - min) * 0.20);
+                /*
+                 * No usamos el 20% del rango como antes.
+                 * Eso podía mandar el foco demasiado lejos.
+                 *
+                 * Probamos una distancia muy cercana, pero no exactamente
+                 * el mínimo absoluto para evitar que el QR quede demasiado
+                 * cerca de la distancia mínima de enfoque de la lente.
+                 */
+                const distanciaCercana =
+                    min + ((max - min) * 0.03);
 
-                    advanced.push({
-                        focusDistance: distanciaCercana
+                if (modos.includes("manual")) {
+
+                    try {
+
+                        await track.applyConstraints({
+                            advanced: [{
+                                focusMode: "manual",
+                                focusDistance: distanciaCercana
+                            }]
+                        });
+
+                        console.log(
+                            "✅ Enfoque manual cercano:",
+                            distanciaCercana
+                        );
+
+                        return;
+                    } catch (e) {
+                        console.warn(
+                            "No funcionó enfoque manual:",
+                            e
+                        );
+                    }
+                }
+
+                /*
+                 * Algunos equipos aceptan focusDistance sin manual.
+                 */
+                try {
+
+                    await track.applyConstraints({
+                        advanced: [{
+                            focusDistance: distanciaCercana
+                        }]
                     });
+
+                    console.log(
+                        "✅ Distancia de enfoque cercana:",
+                        distanciaCercana
+                    );
+
+                    return;
+
+                } catch (e) {
+                    console.warn(
+                        "No se pudo aplicar focusDistance:",
+                        e
+                    );
                 }
             }
 
             /*
-             * En ciertos dispositivos también podemos mejorar el detalle
-             * usando un poco de zoom óptico/digital disponible por cámara.
-             * No lo modificamos automáticamente porque podría recortar el QR.
+             * Si no existe control de distancia, usamos autofocus continuo.
              */
-
-            if (advanced.length) {
+            if (modos.includes("continuous")) {
 
                 try {
+
                     await track.applyConstraints({
-                        advanced: advanced
+                        advanced: [{
+                            focusMode: "continuous"
+                        }]
                     });
 
-                    console.log("✅ Enfoque de cámara configurado.");
-                } catch (error) {
+                    console.log("✅ Autofocus continuo activado.");
+
+                } catch (e) {
                     console.warn(
-                        "No se pudieron aplicar todas las opciones de enfoque:",
-                        error
+                        "No se pudo activar autofocus continuo:",
+                        e
                     );
-
-                    /*
-                     * Segundo intento: solamente autofocus continuo.
-                     * Esto permite funcionar incluso si focusDistance no es aceptado.
-                     */
-                    if (
-                        Array.isArray(capabilities.focusMode) &&
-                        capabilities.focusMode.includes("continuous")
-                    ) {
-                        try {
-                            await track.applyConstraints({
-                                advanced: [
-                                    { focusMode: "continuous" }
-                                ]
-                            });
-
-                            console.log("✅ Autofocus continuo activado.");
-                        } catch (e) {
-                            console.warn("Autofocus continuo no disponible:", e);
-                        }
-                    }
                 }
             }
 
         } catch (error) {
-            console.warn("No fue posible configurar el enfoque:", error);
+
+            console.warn(
+                "Error configurando enfoque cercano:",
+                error
+            );
+        }
+    }
+
+
+    async function enfoqueAutomatico() {
+
+        try {
+
+            const track = await obtenerTrackCamara();
+
+            if (!track || !track.applyConstraints) return;
+
+            const capabilities = track.getCapabilities
+                ? track.getCapabilities()
+                : {};
+
+            const modos = Array.isArray(capabilities.focusMode)
+                ? capabilities.focusMode
+                : [];
+
+            if (modos.includes("continuous")) {
+
+                await track.applyConstraints({
+                    advanced: [{
+                        focusMode: "continuous"
+                    }]
+                });
+
+                console.log("🔄 Autofocus continuo.");
+
+            }
+
+        } catch (error) {
+
+            console.warn(
+                "No se pudo activar autofocus:",
+                error
+            );
         }
     }
 
 
     async function activarEnfoqueContinuo() {
 
-        /*
-         * Limpiar cualquier temporizador anterior.
-         */
         if (intervaloEnfoque) {
             clearInterval(intervaloEnfoque);
             intervaloEnfoque = null;
         }
 
         /*
-         * Primer intento cuando el video ya está creado.
+         * Primero intentamos enfoque cercano.
          */
-        await configurarEnfoque();
+        await enfoqueCercano();
 
         /*
-         * Algunos celulares tardan en estabilizar la cámara.
-         * Reintentamos durante unos segundos.
+         * Volvemos a intentarlo unas veces porque algunos teléfonos
+         * tardan en terminar de inicializar la cámara.
          */
         let intentos = 0;
 
@@ -817,25 +913,30 @@
 
             intentos++;
 
-            await configurarEnfoque();
+            await enfoqueCercano();
 
             if (intentos >= 8) {
+
                 clearInterval(intervaloEnfoque);
                 intervaloEnfoque = null;
+
+                console.log(
+                    "✅ Finalizaron los intentos automáticos de enfoque."
+                );
             }
 
-        }, 1200);
+        }, 700);
     }
 
 
     function detenerRutinaEnfoque() {
 
         if (intervaloEnfoque) {
+
             clearInterval(intervaloEnfoque);
             intervaloEnfoque = null;
         }
     }
-
 
     /* =====================================================
        INICIAR SCANNER
