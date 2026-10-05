@@ -155,41 +155,6 @@
         color: #555;
 
     }
-
-
-    /* ================================
-       CONTROLES DE ENFOQUE
-    ================================= */
-
-    .controlesEnfoque {
-        display: flex;
-        justify-content: center;
-        gap: 10px;
-        margin-top: 12px;
-    }
-
-    .controlesEnfoque button {
-        border: none;
-        border-radius: 8px;
-        padding: 9px 14px;
-        background: #1769d1;
-        color: white;
-        font-size: 14px;
-        cursor: pointer;
-    }
-
-    .controlesEnfoque button:active {
-        transform: scale(0.97);
-    }
-
-    @media (max-width: 600px) {
-        .controlesEnfoque button {
-            padding: 8px 12px;
-            font-size: 13px;
-        }
-    }
-
-
     /* ================================
        BOTÓN CERRAR
     ================================= */
@@ -407,7 +372,6 @@
 
             if (
                 !navigator.mediaDevices ||
-                !navigator.mediaDevices.getUserMedia
             ) {
                 throw new Error(
                     "El navegador no permite acceder a la cámara."
@@ -423,7 +387,6 @@
              */
 
             const stream =
-                await navigator.mediaDevices.getUserMedia({
 
                     video: true
 
@@ -702,299 +665,45 @@
     ===================================================== */
 
     /* =====================================================
-       ENFOQUE DE CÁMARA — MODO CERCANO
-       ===================================================== */
-
-    let intervaloEnfoque = null;
-
-    async function obtenerTrackCamara() {
-
-        const video = document.querySelector("#lectorQR video");
-
-        if (!video || !video.srcObject) return null;
-
-        const tracks = video.srcObject.getVideoTracks();
-
-        if (!tracks || !tracks.length) return null;
-
-        return tracks[0];
-    }
-
-    async function enfoqueCercano() {
-
-        try {
-
-            const track = await obtenerTrackCamara();
-
-            if (!track || !track.applyConstraints) {
-                console.warn("El navegador no permite controlar el enfoque.");
-                return;
-            }
-
-            const capabilities = track.getCapabilities
-                ? track.getCapabilities()
-                : {};
-
-            console.log("📷 Capacidades:", capabilities);
-
-            const modos = Array.isArray(capabilities.focusMode)
-                ? capabilities.focusMode
-                : [];
-
-            /*
-             * Si el teléfono permite enfoque manual y focusDistance,
-             * usamos el valor MÁS CERCANO posible.
-             *
-             * IMPORTANTE:
-             * focusDistance está expresado en metros.
-             * Un valor menor = objeto más cerca.
-             */
-            if (
-                capabilities.focusDistance &&
-                typeof capabilities.focusDistance.min === "number" &&
-                typeof capabilities.focusDistance.max === "number"
-            ) {
-
-                const min = capabilities.focusDistance.min;
-                const max = capabilities.focusDistance.max;
-
-                /*
-                 * No usamos el 20% del rango como antes.
-                 * Eso podía mandar el foco demasiado lejos.
-                 *
-                 * Probamos una distancia muy cercana, pero no exactamente
-                 * el mínimo absoluto para evitar que el QR quede demasiado
-                 * cerca de la distancia mínima de enfoque de la lente.
-                 */
-                const distanciaCercana =
-                    min + ((max - min) * 0.03);
-
-                if (modos.includes("manual")) {
-
-                    try {
-
-                        await track.applyConstraints({
-                            advanced: [{
-                                focusMode: "manual",
-                                focusDistance: distanciaCercana
-                            }]
-                        });
-
-                        console.log(
-                            "✅ Enfoque manual cercano:",
-                            distanciaCercana
-                        );
-
-                        return;
-                    } catch (e) {
-                        console.warn(
-                            "No funcionó enfoque manual:",
-                            e
-                        );
-                    }
-                }
-
-                /*
-                 * Algunos equipos aceptan focusDistance sin manual.
-                 */
-                try {
-
-                    await track.applyConstraints({
-                        advanced: [{
-                            focusDistance: distanciaCercana
-                        }]
-                    });
-
-                    console.log(
-                        "✅ Distancia de enfoque cercana:",
-                        distanciaCercana
-                    );
-
-                    return;
-
-                } catch (e) {
-                    console.warn(
-                        "No se pudo aplicar focusDistance:",
-                        e
-                    );
-                }
-            }
-
-            /*
-             * Si no existe control de distancia, usamos autofocus continuo.
-             */
-            if (modos.includes("continuous")) {
-
-                try {
-
-                    await track.applyConstraints({
-                        advanced: [{
-                            focusMode: "continuous"
-                        }]
-                    });
-
-                    console.log("✅ Autofocus continuo activado.");
-
-                } catch (e) {
-                    console.warn(
-                        "No se pudo activar autofocus continuo:",
-                        e
-                    );
-                }
-            }
-
-        } catch (error) {
-
-            console.warn(
-                "Error configurando enfoque cercano:",
-                error
-            );
-        }
-    }
-
-
-    async function enfoqueAutomatico() {
-
-        try {
-
-            const track = await obtenerTrackCamara();
-
-            if (!track || !track.applyConstraints) return;
-
-            const capabilities = track.getCapabilities
-                ? track.getCapabilities()
-                : {};
-
-            const modos = Array.isArray(capabilities.focusMode)
-                ? capabilities.focusMode
-                : [];
-
-            if (modos.includes("continuous")) {
-
-                await track.applyConstraints({
-                    advanced: [{
-                        focusMode: "continuous"
-                    }]
-                });
-
-                console.log("🔄 Autofocus continuo.");
-
-            }
-
-        } catch (error) {
-
-            console.warn(
-                "No se pudo activar autofocus:",
-                error
-            );
-        }
-    }
-
-
-    async function activarEnfoqueContinuo() {
-
-        if (intervaloEnfoque) {
-            clearInterval(intervaloEnfoque);
-            intervaloEnfoque = null;
-        }
-
-        /*
-         * Primero intentamos enfoque cercano.
-         */
-        await enfoqueCercano();
-
-        /*
-         * Volvemos a intentarlo unas veces porque algunos teléfonos
-         * tardan en terminar de inicializar la cámara.
-         */
-        let intentos = 0;
-
-        intervaloEnfoque = setInterval(async function() {
-
-            intentos++;
-
-            await enfoqueCercano();
-
-            if (intentos >= 8) {
-
-                clearInterval(intervaloEnfoque);
-                intervaloEnfoque = null;
-
-                console.log(
-                    "✅ Finalizaron los intentos automáticos de enfoque."
-                );
-            }
-
-        }, 700);
-    }
-
-
-    function detenerRutinaEnfoque() {
-
-        if (intervaloEnfoque) {
-
-            clearInterval(intervaloEnfoque);
-            intervaloEnfoque = null;
-        }
-    }
-
-    /* =====================================================
        INICIAR SCANNER
        ===================================================== */
 
     async function iniciarScanner() {
 
-        if (!camaraActualId) {
-            console.error("No hay cámara seleccionada.");
-            return;
-        }
-
-        detenerRutinaEnfoque();
-
-        /*
-         * Detener completamente el lector anterior.
-         */
-        if (scannerQR) {
-            try {
-                await scannerQR.stop();
-            } catch (error) {
-                console.warn("No se pudo detener el lector anterior:", error);
-            }
-
-            scannerQR = null;
-        }
-
-        QRProcesado = false;
-
-        const lector = document.getElementById("lectorQR");
-        lector.innerHTML = "";
-
-        scannerQR = new Html5Qrcode("lectorQR");
-
         try {
 
+            QRProcesado = false;
+
+            if (scannerQR) {
+                try {
+                    await scannerQR.stop();
+                } catch (e) {}
+
+                try {
+                    scannerQR.clear();
+                } catch (e) {}
+
+                scannerQR = null;
+            }
+
+            document.getElementById("lectorQR").innerHTML = "";
+
+            scannerQR = new Html5Qrcode("lectorQR");
+
             await scannerQR.start(
-
                 camaraActualId,
-
                 {
-                    fps: 15,
+                    fps: 10,
 
                     qrbox: function(viewfinderWidth, viewfinderHeight) {
 
-                        /*
-                         * QR grande para permitir lectura a corta distancia.
-                         */
                         const size = Math.floor(
-                            Math.min(
-                                viewfinderWidth,
-                                viewfinderHeight
-                            ) * 0.78
+                            Math.min(viewfinderWidth, viewfinderHeight) * 0.70
                         );
 
                         return {
-                            width: Math.min(size, 340),
-                            height: Math.min(size, 340)
+                            width: Math.min(size, 300),
+                            height: Math.min(size, 300)
                         };
                     },
 
@@ -1004,83 +713,50 @@
 
                 function(textoQR) {
 
-                    if (QRProcesado) {
-                        return;
-                    }
+                    if (QRProcesado) return;
 
                     QRProcesado = true;
-                    detenerRutinaEnfoque();
 
                     document.getElementById("mensajeQR").innerHTML =
                         "✅ QR detectado. Procesando...";
 
-                    if (scannerQR) {
+                    scannerQR.stop()
+                        .then(function() {
 
-                        scannerQR.stop()
-                            .then(function() {
-                                scannerQR = null;
-                                enviarQR(textoQR);
-                            })
-                            .catch(function(error) {
-                                console.warn(
-                                    "Error deteniendo cámara después del QR:",
-                                    error
-                                );
+                            try {
+                                scannerQR.clear();
+                            } catch (e) {}
 
-                                scannerQR = null;
-                                enviarQR(textoQR);
-                            });
+                            scannerQR = null;
+                            enviarQR(textoQR);
 
-                    } else {
-                        enviarQR(textoQR);
-                    }
+                        })
+                        .catch(function(error) {
+
+                            console.error(
+                                "Error deteniendo cámara:",
+                                error
+                            );
+
+                            scannerQR = null;
+                            enviarQR(textoQR);
+                        });
                 },
 
                 function(errorMessage) {
-                    /*
-                     * Los errores de búsqueda son normales mientras
-                     * el usuario todavía no apunta al QR.
-                     */
+                    // Errores normales mientras busca el QR.
                 }
             );
-
-            /*
-             * Esperar a que el <video> exista realmente.
-             */
-            await new Promise(function(resolve) {
-                setTimeout(resolve, 500);
-            });
-
-            const video = document.querySelector("#lectorQR video");
-
-            if (video) {
-                video.setAttribute("autoplay", "");
-                video.setAttribute("playsinline", "");
-                video.setAttribute("muted", "");
-                video.setAttribute("webkit-playsinline", "");
-
-                try {
-                    await video.play();
-                } catch (error) {
-                    console.warn("El video no pudo iniciar automáticamente:", error);
-                }
-            }
-
-            /*
-             * Activar la rutina reforzada de enfoque.
-             */
-            await activarEnfoqueContinuo();
 
             actualizarNombreCamara();
 
             document.getElementById("mensajeQR").innerHTML =
-                "📷 Cámara lista. Acerca el QR y mantenlo dentro del marco";
+                "📷 Cámara lista. Coloca el QR dentro del marco";
 
         } catch (error) {
 
             console.error("Error iniciando cámara:", error);
 
-            detenerRutinaEnfoque();
             scannerQR = null;
 
             document.getElementById("mensajeQR").innerHTML =
@@ -1089,88 +765,57 @@
     }
 
 
-    /* =====================================================
-       CAMBIAR DE CÁMARA
-    ===================================================== */
-
     async function cambiarCamara() {
 
-        detenerRutinaEnfoque();
+        const nuevaCamara =
+            document.getElementById("selectorCamara").value;
 
-        const selector =
-            document.getElementById(
-                "selectorCamara"
-            );
-
-        const nuevoId =
-            selector.value;
-
-        if (!nuevoId) {
+        if (!nuevaCamara || nuevaCamara === camaraActualId) {
             return;
         }
 
-        if (nuevoId === camaraActualId) {
-            return;
-        }
-
-        document.getElementById(
-            "mensajeQR"
-        ).innerHTML =
+        document.getElementById("mensajeQR").innerHTML =
             "🔄 Cambiando de cámara...";
 
         QRProcesado = true;
 
-        /*
-         * Detener completamente la cámara actual.
-         */
-        if (scannerQR) {
+        try {
 
-            try {
+            if (scannerQR) {
                 await scannerQR.stop();
-            } catch (error) {
-                console.warn(
-                    "No se pudo detener correctamente la cámara:",
-                    error
-                );
+
+                try {
+                    scannerQR.clear();
+                } catch (e) {}
+
+                scannerQR = null;
             }
+
+        } catch (error) {
+
+            console.warn(
+                "Error deteniendo cámara anterior:",
+                error
+            );
 
             scannerQR = null;
         }
 
-        /*
-         * Limpiar el video anterior.
-         */
-        document.getElementById(
-            "lectorQR"
-        ).innerHTML = "";
+        document.getElementById("lectorQR").innerHTML = "";
 
-        /*
-         * Seleccionar la nueva cámara.
-         */
-        camaraActualId = nuevoId;
+        camaraActualId = nuevaCamara;
 
         actualizarNombreCamara();
 
-        /*
-         * Dar un pequeño tiempo al navegador/celular
-         * para liberar la cámara anterior.
-         */
-        await new Promise(function(resolve) {
-            setTimeout(resolve, 350);
-        });
-
         QRProcesado = false;
 
-        /*
-         * Iniciar la nueva cámara.
-         */
+        await new Promise(function(resolve) {
+            setTimeout(resolve, 300);
+        });
+
         await iniciarScanner();
     }
 
-
-    /* =====================================================
-       ENVIAR QR A APP SCRIPT
-    ===================================================== */
 
     function enviarQR(textoQR) {
 
