@@ -1,3 +1,5 @@
+<script>
+
 async function iniciarScanner() {
 
     if (!camaraActualId) {
@@ -5,7 +7,6 @@ async function iniciarScanner() {
         return;
     }
 
-    // Si ya existe un scanner, detenerlo primero
     if (scannerQR) {
         try {
             await scannerQR.stop();
@@ -37,7 +38,6 @@ async function iniciarScanner() {
                 aspectRatio: 1.0,
 
                 disableFlip: false
-
             },
 
             function (textoQR) {
@@ -70,59 +70,34 @@ async function iniciarScanner() {
 
                         enviarQR(textoQR);
                     });
-
             },
 
             function (errorMessage) {
                 // Error normal mientras busca el QR
             }
-
         );
 
-        /*
-         * ==========================================
-         * MEJORAR ENFOQUE DE LA CÁMARA
-         * ==========================================
-         */
-
+        // Intentar mejorar el enfoque
         try {
 
-            const video =
-                document.querySelector(
-                    "#lectorQR video"
-                );
+            const video = document.querySelector(
+                "#lectorQR video"
+            );
 
             if (video) {
 
-                video.setAttribute(
-                    "autoplay",
-                    ""
-                );
-
-                video.setAttribute(
-                    "playsinline",
-                    ""
-                );
-
-                video.setAttribute(
-                    "muted",
-                    ""
-                );
-
-                /*
-                 * Intentar autofocus continuo
-                 */
+                video.setAttribute("autoplay", "");
+                video.setAttribute("playsinline", "");
+                video.setAttribute("muted", "");
 
                 const track =
                     video.srcObject &&
                     video.srcObject.getVideoTracks()[0];
 
-                if (track) {
+                if (track && track.getCapabilities) {
 
                     const capabilities =
-                        track.getCapabilities
-                            ? track.getCapabilities()
-                            : {};
+                        track.getCapabilities();
 
                     console.log(
                         "Capacidades cámara:",
@@ -131,39 +106,30 @@ async function iniciarScanner() {
 
                     if (
                         capabilities.focusMode &&
-                        capabilities.focusMode.includes(
-                            "continuous"
-                        )
+                        capabilities.focusMode.includes("continuous")
                     ) {
 
                         await track.applyConstraints({
-
                             advanced: [
                                 {
-                                    focusMode:
-                                        "continuous"
+                                    focusMode: "continuous"
                                 }
                             ]
-
                         });
 
                         console.log(
                             "✅ Autofocus continuo activado"
                         );
-
                     }
-
                 }
-
             }
 
         } catch (error) {
 
             console.warn(
-                "El dispositivo no permite configurar autofocus:",
+                "No se pudo configurar el autofocus:",
                 error
             );
-
         }
 
         document.getElementById(
@@ -171,9 +137,7 @@ async function iniciarScanner() {
         ).innerHTML =
             "📷 Cámara lista. Enfoca el código QR";
 
-    }
-
-    catch (error) {
+    } catch (error) {
 
         console.error(
             "Error iniciando cámara:",
@@ -186,6 +150,7 @@ async function iniciarScanner() {
             "mensajeQR"
         ).innerHTML =
             "❌ No se pudo iniciar esta cámara.";
-
     }
 }
+
+</script>
