@@ -609,6 +609,66 @@
 
 
     /* =====================================================
+       ENFOQUE SUAVE — SIN CAMBIAR PERMISOS
+    ===================================================== */
+
+    async function activarEnfoqueSuave() {
+
+        try {
+
+            await new Promise(function(resolve) {
+                setTimeout(resolve, 500);
+            });
+
+            const video =
+                document.querySelector("#lectorQR video");
+
+            if (!video || !video.srcObject) {
+                return;
+            }
+
+            const tracks =
+                video.srcObject.getVideoTracks();
+
+            if (!tracks || !tracks.length) {
+                return;
+            }
+
+            const track = tracks[0];
+
+            if (track.getCapabilities) {
+
+                const capabilities =
+                    track.getCapabilities();
+
+                if (
+                    Array.isArray(capabilities.focusMode) &&
+                    capabilities.focusMode.includes("continuous")
+                ) {
+
+                    await track.applyConstraints({
+                        advanced: [{
+                            focusMode: "continuous"
+                        }]
+                    });
+
+                    console.log(
+                        "✅ Autofocus continuo activado."
+                    );
+                }
+            }
+
+        } catch (error) {
+
+            console.warn(
+                "No se pudo ajustar autofocus:",
+                error
+            );
+        }
+    }
+
+
+    /* =====================================================
        INICIAR SCANNER
     ===================================================== */
 
@@ -733,6 +793,11 @@
 
         )
 
+        .then(function() {
+
+            activarEnfoqueSuave();
+
+        })
         .catch(function(error) {
 
 
