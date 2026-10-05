@@ -613,66 +613,73 @@
     ===================================================== */
 
     async function activarEnfoqueSuave() {
+  function aplicarEnfoqueCercano() {
+    const video = document.querySelector("#lectorQR video");
 
-        try {
+    if (!video || !video.srcObject) return;
 
-            await new Promise(function(resolve) {
-                setTimeout(resolve, 500);
-            });
+    const tracks = video.srcObject.getVideoTracks();
+    if (!tracks || !tracks.length) return;
 
-            const video =
-                document.querySelector("#lectorQR video");
+    const track = tracks[0];
 
-            if (!video || !video.srcObject) {
-                return;
-            }
+    try {
+      const capacidades = track.getCapabilities ? track.getCapabilities() : {};
+      const avanzadas = [];
 
-            const tracks =
-                video.srcObject.getVideoTracks();
+      // Primero intentamos mantener autofocus continuo.
+      if (
+        capacidades.focusMode &&
+        capacidades.focusMode.includes("continuous")
+      ) {
+        avanzadas.push({ focusMode: "continuous" });
+      }
 
-            if (!tracks || !tracks.length) {
-                return;
-            }
+      /*
+       * Algunos teléfonos exponen focusDistance.
+       * Un valor menor significa enfocar más cerca.
+       * Probamos progresivamente valores cercanos sin
+       * volver a abrir la cámara ni solicitar permisos.
+       */
+      if (
+        capacidades.focusDistance &&
+        typeof capacidades.focusDistance.min === "number"
+      ) {
+        const minimo = capacidades.focusDistance.min;
+        const maximo = capacidades.focusDistance.max;
 
-            const track = tracks[0];
+        const distanciaCercana = Math.min(
+          Math.max(minimo, 0.10),
+          maximo
+        );
 
-            if (track.getCapabilities) {
+        avanzadas.push({
+          focusDistance: distanciaCercana
+        });
+      }
 
-                const capabilities =
-                    track.getCapabilities();
+      if (avanzadas.length && track.applyConstraints) {
+        track.applyConstraints({
+          advanced: avanzadas
+        }).then(function() {
+          console.log("Enfoque cercano aplicado.");
+        }).catch(function(error) {
+          console.log("El dispositivo no permitió enfoque cercano:", error);
+        });
+      }
 
-                if (
-                    Array.isArray(capabilities.focusMode) &&
-                    capabilities.focusMode.includes("continuous")
-                ) {
-
-                    await track.applyConstraints({
-                        advanced: [{
-                            focusMode: "continuous"
-                        }]
-                    });
-
-                    console.log(
-                        "✅ Autofocus continuo activado."
-                    );
-                }
-            }
-
-        } catch (error) {
-
-            console.warn(
-                "No se pudo ajustar autofocus:",
-                error
-            );
-        }
+    } catch (error) {
+      console.log("Control de enfoque no disponible:", error);
     }
+  }
 
+  // Dejamos que html5-qrcode termine de preparar el video.
+  setTimeout(aplicarEnfoqueCercano, 700);
+  setTimeout(aplicarEnfoqueCercano, 1800);
+  setTimeout(aplicarEnfoqueCercano, 3500);
+}
 
-    /* =====================================================
-       INICIAR SCANNER
-    ===================================================== */
-
-    function iniciarScanner() {
+function iniciarScanner() {
 
 
         /*
