@@ -1,156 +1,1134 @@
-<script>
+<!DOCTYPE html>
 
-async function iniciarScanner() {
+<html lang="es">
 
-    if (!camaraActualId) {
-        console.error("No hay cámara seleccionada");
-        return;
+<head>
+
+
+<meta charset="UTF-8">
+
+<meta
+    name="viewport"
+    content="width=device-width, initial-scale=1">
+
+<title>Escanear QR</title>
+
+<script
+    src="https://unpkg.com/html5-qrcode">
+</script>
+
+
+<style>
+
+    * {
+        box-sizing: border-box;
     }
 
-    if (scannerQR) {
-        try {
-            await scannerQR.stop();
-        } catch (e) {
-            console.warn("No se pudo detener el scanner anterior:", e);
+
+    body {
+
+        margin: 0;
+
+        padding: 20px;
+
+        background: #f4f6f8;
+
+        font-family: Arial, sans-serif;
+
+        text-align: center;
+
+    }
+
+
+    h2 {
+
+        margin-top: 10px;
+
+        color: #0b3d91;
+
+    }
+
+
+    /* ================================
+       SELECTOR DE CÁMARA
+    ================================= */
+
+    #contenedorCamara {
+
+        width: 100%;
+
+        max-width: 500px;
+
+        margin: 15px auto;
+
+        text-align: left;
+
+    }
+
+
+    #contenedorCamara label {
+
+        display: block;
+
+        margin-bottom: 6px;
+
+        font-weight: bold;
+
+        color: #333;
+
+    }
+
+
+    #selectorCamara {
+
+        width: 100%;
+
+        padding: 12px;
+
+        border: 1px solid #ccc;
+
+        border-radius: 8px;
+
+        background: white;
+
+        font-size: 15px;
+
+        cursor: pointer;
+
+    }
+
+
+    /* ================================
+       INFORMACIÓN DE CÁMARA
+    ================================= */
+
+    #camaraActual {
+
+        margin-top: 10px;
+
+        padding: 10px;
+
+        background: #e8f0fe;
+
+        border-radius: 8px;
+
+        color: #0b3d91;
+
+        font-size: 14px;
+
+        text-align: center;
+
+    }
+
+
+    /* ================================
+       LECTOR QR
+    ================================= */
+
+    #lectorQR {
+
+        width: 100%;
+
+        max-width: 500px;
+
+        margin: 20px auto;
+
+        background: white;
+
+        border-radius: 12px;
+
+        overflow: hidden;
+
+    }
+
+
+    /* ================================
+       MENSAJE
+    ================================= */
+
+    #mensajeQR {
+
+        margin-top: 15px;
+
+        font-size: 16px;
+
+        color: #555;
+
+    }
+
+
+    /* ================================
+       BOTÓN CERRAR
+    ================================= */
+
+    .cerrar {
+
+        margin-top: 15px;
+
+        padding: 12px 25px;
+
+        border: none;
+
+        border-radius: 8px;
+
+        background: #d32f2f;
+
+        color: white;
+
+        font-size: 16px;
+
+        cursor: pointer;
+
+    }
+
+
+    .cerrar:hover {
+
+        opacity: 0.9;
+
+    }
+
+
+    /* ================================
+       BOTÓN CAMBIAR
+    ================================= */
+
+    #botonCambiar {
+
+        margin-top: 10px;
+
+        padding: 10px 20px;
+
+        border: none;
+
+        border-radius: 8px;
+
+        background: #0b3d91;
+
+        color: white;
+
+        font-size: 15px;
+
+        cursor: pointer;
+
+        display: none;
+
+    }
+
+
+    #botonCambiar:hover {
+
+        opacity: 0.9;
+
+    }
+
+
+
+    /* =====================================================
+       VIDEO DE LA CÁMARA
+    ===================================================== */
+
+    #lectorQR video {
+        width: 100% !important;
+        height: auto !important;
+        max-height: 70vh;
+        object-fit: cover;
+        display: block;
+    }
+
+    @media (max-width: 600px) {
+
+        body {
+            padding: 12px;
         }
 
-        scannerQR = null;
+        h2 {
+            font-size: 21px;
+        }
+
+        #lectorQR {
+            margin: 15px auto;
+            border-radius: 12px;
+        }
+
+        #selectorCamara {
+            font-size: 14px;
+            padding: 10px;
+        }
+
+        #camaraActual {
+            font-size: 13px;
+        }
+
+        #mensajeQR {
+            font-size: 14px;
+        }
+
+        .cerrar {
+            width: 100%;
+            max-width: 300px;
+        }
     }
 
-    QRProcesado = false;
+</style>
 
-    scannerQR = new Html5Qrcode("lectorQR");
 
-    try {
+</head>
 
-        await scannerQR.start(
+<body>
 
-            camaraActualId,
 
-            {
-                fps: 15,
+<h2>📷 Escanear código QR</h2>
 
-                qrbox: {
-                    width: 280,
-                    height: 280
-                },
 
-                aspectRatio: 1.0,
+<!-- =================================
+     SELECTOR DE CÁMARA
+================================== -->
 
-                disableFlip: false
-            },
+<div id="contenedorCamara">
 
-            function (textoQR) {
+    <label for="selectorCamara">
 
-                if (QRProcesado) {
-                    return;
-                }
+        📷 Seleccionar cámara
 
-                QRProcesado = true;
+    </label>
 
-                document.getElementById("mensajeQR").innerHTML =
-                    "✅ QR detectado. Procesando...";
 
-                scannerQR.stop()
-                    .then(function () {
+    <select
+        id="selectorCamara"
+        disabled>
 
-                        scannerQR = null;
+        <option>
 
-                        enviarQR(textoQR);
+            Detectando cámaras...
 
-                    })
-                    .catch(function (error) {
+        </option>
 
-                        console.error(
-                            "Error deteniendo cámara:",
-                            error
-                        );
+    </select>
 
-                        scannerQR = null;
 
-                        enviarQR(textoQR);
-                    });
-            },
+    <div id="camaraActual">
 
-            function (errorMessage) {
-                // Error normal mientras busca el QR
-            }
-        );
+        📷 Cámara: Detectando...
 
-        // Intentar mejorar el enfoque
+    </div>
+
+</div>
+
+
+<!-- =================================
+     LECTOR
+================================== -->
+
+<div id="lectorQR"></div>
+
+
+<!-- =================================
+     MENSAJE
+================================== -->
+
+<div id="mensajeQR">
+
+    Preparando cámara...
+
+</div>
+
+
+<!-- =================================
+     BOTÓN CANCELAR
+================================== -->
+
+<button
+    type="button"
+    class="cerrar"
+    onclick="cerrarScanner()">
+
+    ❌ Cancelar
+
+</button>
+
+
+<script>
+
+
+    /* =====================================================
+       VARIABLES
+    ===================================================== */
+
+    let scannerQR = null;
+
+    let QRProcesado = false;
+
+    let camarasDisponibles = [];
+
+    let camaraActualId = null;
+
+
+    /* =====================================================
+       OBTENER CÁMARAS
+    ===================================================== */
+
+    async function obtenerCamaras() {
+
         try {
 
-            const video = document.querySelector(
-                "#lectorQR video"
-            );
+            if (
+                !navigator.mediaDevices ||
+                !navigator.mediaDevices.getUserMedia
+            ) {
+                throw new Error(
+                    "El navegador no permite acceder a la cámara."
+                );
+            }
 
-            if (video) {
+            /*
+             * Primero solicitamos permiso.
+             *
+             * Esto es importante porque algunos navegadores
+             * no muestran los nombres de las cámaras antes
+             * de conceder permiso.
+             */
 
-                video.setAttribute("autoplay", "");
-                video.setAttribute("playsinline", "");
-                video.setAttribute("muted", "");
+            const stream =
+                await navigator.mediaDevices.getUserMedia({
 
-                const track =
-                    video.srcObject &&
-                    video.srcObject.getVideoTracks()[0];
+                    video: true
 
-                if (track && track.getCapabilities) {
+                });
 
-                    const capabilities =
-                        track.getCapabilities();
 
-                    console.log(
-                        "Capacidades cámara:",
-                        capabilities
-                    );
+            /*
+             * Cerramos inmediatamente el stream.
+             *
+             * El lector html5-qrcode abrirá después
+             * la cámara que nosotros seleccionemos.
+             */
+
+            stream.getTracks().forEach(function(track) {
+
+                track.stop();
+
+            });
+
+
+            /*
+             * Obtenemos todas las cámaras.
+             */
+
+            const dispositivos =
+                await Html5Qrcode.getCameras();
+
+
+            if (
+                !dispositivos ||
+                dispositivos.length === 0
+            ) {
+
+                throw new Error(
+                    "No se encontraron cámaras."
+                );
+
+            }
+
+
+            camarasDisponibles =
+                dispositivos;
+
+
+            const selector =
+                document.getElementById(
+                    "selectorCamara"
+                );
+
+
+            /*
+             * Limpiar selector.
+             */
+
+            selector.innerHTML = "";
+
+
+            /*
+             * Agregar cada cámara.
+             */
+
+            dispositivos.forEach(
+                function(camara, indice) {
+
+                    const opcion =
+                        document.createElement(
+                            "option"
+                        );
+
+
+                    opcion.value =
+                        camara.id;
+
+
+                    /*
+                     * Algunos dispositivos
+                     * entregan nombre.
+                     *
+                     * Otros pueden devolver
+                     * solamente "Camera 1",
+                     * etc.
+                     */
+
+                    let nombre =
+                        camara.label;
+
 
                     if (
-                        capabilities.focusMode &&
-                        capabilities.focusMode.includes("continuous")
+                        !nombre ||
+                        nombre.trim() === ""
                     ) {
 
-                        await track.applyConstraints({
-                            advanced: [
-                                {
-                                    focusMode: "continuous"
-                                }
-                            ]
-                        });
+                        nombre =
+                            "Cámara " +
+                            (indice + 1);
 
-                        console.log(
-                            "✅ Autofocus continuo activado"
+                    }
+
+
+                    opcion.textContent =
+                        "📷 " + nombre;
+
+
+                    selector.appendChild(
+                        opcion
+                    );
+
+                }
+            );
+
+
+            selector.disabled = false;
+
+
+            /*
+             * Intentamos seleccionar
+             * inicialmente una cámara trasera.
+             */
+
+            let indiceTrasera = -1;
+
+
+            dispositivos.forEach(
+                function(camara, indice) {
+
+                    const nombre =
+                        (
+                            camara.label ||
+                            ""
+                        ).toLowerCase();
+
+
+                    if (
+                        indiceTrasera === -1 &&
+                        (
+                            nombre.includes(
+                                "back"
+                            ) ||
+                            nombre.includes(
+                                "rear"
+                            ) ||
+                            nombre.includes(
+                                "trasera"
+                            ) ||
+                            nombre.includes(
+                                "environment"
+                            )
+                        )
+                    ) {
+
+                        indiceTrasera =
+                            indice;
+
+                    }
+
+                }
+            );
+
+
+            /*
+             * Si encontramos cámara trasera,
+             * la usamos.
+             *
+             * Si no, utilizamos la primera.
+             */
+
+            if (indiceTrasera >= 0) {
+
+                camaraActualId =
+                    dispositivos[
+                        indiceTrasera
+                    ].id;
+
+            } else {
+
+                camaraActualId =
+                    dispositivos[0].id;
+
+            }
+
+
+            selector.value =
+                camaraActualId;
+
+
+            actualizarNombreCamara();
+
+
+            /*
+             * Iniciar cámara.
+             */
+
+            iniciarScanner();
+
+
+        }
+
+        catch (error) {
+
+            console.error(
+                "Error obteniendo cámaras:",
+                error
+            );
+
+
+            document.getElementById(
+                "mensajeQR"
+            ).innerHTML =
+                "❌ No se pudieron obtener las cámaras. " +
+                "Verifique que haya concedido permiso para utilizar la cámara.";
+
+        }
+
+    }
+
+
+    /* =====================================================
+       MOSTRAR CÁMARA ACTUAL
+    ===================================================== */
+
+    function actualizarNombreCamara() {
+
+        const elemento =
+            document.getElementById(
+                "camaraActual"
+            );
+
+
+        const camara =
+            camarasDisponibles.find(
+                function(c) {
+
+                    return (
+                        c.id ===
+                        camaraActualId
+                    );
+
+                }
+            );
+
+
+        if (!camara) {
+
+            elemento.innerHTML =
+                "📷 Cámara: No identificada";
+
+            return;
+
+        }
+
+
+        let nombre =
+            camara.label;
+
+
+        if (
+            !nombre ||
+            nombre.trim() === ""
+        ) {
+
+            nombre =
+                "Cámara seleccionada";
+
+        }
+
+
+        elemento.innerHTML =
+            "📷 <strong>Cámara utilizada:</strong> " +
+            nombre;
+
+    }
+
+
+    /* =====================================================
+       INICIAR SCANNER
+    ===================================================== */
+
+    async function iniciarScanner() {
+
+        if (!camaraActualId) {
+            console.error("No hay cámara seleccionada.");
+            return;
+        }
+
+        /*
+         * Si existe un lector anterior, detenerlo antes
+         * de crear uno nuevo.
+         */
+        if (scannerQR) {
+            try {
+                await scannerQR.stop();
+            } catch (error) {
+                console.warn("No se pudo detener el lector anterior:", error);
+            }
+
+            scannerQR = null;
+        }
+
+        QRProcesado = false;
+
+        /*
+         * Limpiar el contenedor antes de volver a iniciar.
+         * Esto evita que queden videos/canvas anteriores.
+         */
+        const lector = document.getElementById("lectorQR");
+        lector.innerHTML = "";
+
+        scannerQR = new Html5Qrcode("lectorQR");
+
+        try {
+
+            await scannerQR.start(
+
+                camaraActualId,
+
+                {
+                    fps: 15,
+
+                    qrbox: function(viewfinderWidth, viewfinderHeight) {
+
+                        /*
+                         * Caja adaptable al tamaño del celular.
+                         */
+                        const size = Math.floor(
+                            Math.min(
+                                viewfinderWidth,
+                                viewfinderHeight
+                            ) * 0.70
                         );
+
+                        return {
+                            width: Math.min(size, 320),
+                            height: Math.min(size, 320)
+                        };
+                    },
+
+                    aspectRatio: 1.0,
+
+                    disableFlip: false
+
+                },
+
+                function(textoQR) {
+
+                    if (QRProcesado) {
+                        return;
+                    }
+
+                    QRProcesado = true;
+
+                    document.getElementById(
+                        "mensajeQR"
+                    ).innerHTML =
+                        "✅ QR detectado. Procesando...";
+
+                    if (scannerQR) {
+
+                        scannerQR.stop()
+                            .then(function() {
+
+                                scannerQR = null;
+
+                                enviarQR(textoQR);
+
+                            })
+                            .catch(function(error) {
+
+                                console.warn(
+                                    "Error deteniendo cámara después del QR:",
+                                    error
+                                );
+
+                                scannerQR = null;
+
+                                enviarQR(textoQR);
+                            });
+
+                    } else {
+
+                        enviarQR(textoQR);
+                    }
+                },
+
+                function(errorMessage) {
+                    /*
+                     * Los errores de búsqueda son normales
+                     * mientras el usuario todavía no apunta al QR.
+                     */
+                }
+            );
+
+            /*
+             * =================================================
+             * CONFIGURACIÓN DEL VIDEO Y AUTOFOCUS
+             * =================================================
+             *
+             * html5-qrcode crea el <video> después de start().
+             * Esperamos un momento para obtener su MediaStreamTrack.
+             */
+
+            await new Promise(function(resolve) {
+                setTimeout(resolve, 250);
+            });
+
+            try {
+
+                const video =
+                    document.querySelector("#lectorQR video");
+
+                if (video) {
+
+                    video.setAttribute("autoplay", "");
+                    video.setAttribute("playsinline", "");
+                    video.setAttribute("muted", "");
+
+                    /*
+                     * Intentar autofocus continuo.
+                     * No todos los teléfonos/navegadores lo permiten.
+                     */
+
+                    const stream = video.srcObject;
+
+                    if (stream) {
+
+                        const tracks =
+                            stream.getVideoTracks();
+
+                        if (tracks && tracks.length > 0) {
+
+                            const track = tracks[0];
+
+                            if (track.getCapabilities) {
+
+                                const capabilities =
+                                    track.getCapabilities();
+
+                                console.log(
+                                    "Capacidades de cámara:",
+                                    capabilities
+                                );
+
+                                if (
+                                    capabilities.focusMode &&
+                                    capabilities.focusMode.includes(
+                                        "continuous"
+                                    )
+                                ) {
+
+                                    await track.applyConstraints({
+                                        advanced: [
+                                            {
+                                                focusMode:
+                                                    "continuous"
+                                            }
+                                        ]
+                                    });
+
+                                    console.log(
+                                        "✅ Autofocus continuo activado."
+                                    );
+                                }
+                            }
+                        }
                     }
                 }
+
+            } catch (error) {
+
+                /*
+                 * No detenemos el lector si el dispositivo
+                 * no permite controlar el enfoque.
+                 */
+                console.warn(
+                    "El dispositivo no permite configurar autofocus:",
+                    error
+                );
             }
+
+            actualizarNombreCamara();
+
+            document.getElementById(
+                "mensajeQR"
+            ).innerHTML =
+                "📷 Cámara lista. Coloca el QR dentro del marco";
 
         } catch (error) {
 
-            console.warn(
-                "No se pudo configurar el autofocus:",
+            console.error(
+                "Error iniciando cámara:",
                 error
             );
+
+            scannerQR = null;
+
+            document.getElementById(
+                "mensajeQR"
+            ).innerHTML =
+                "❌ No se pudo iniciar esta cámara.";
+
+        }
+    }
+
+
+    /* =====================================================
+       CAMBIAR DE CÁMARA
+    ===================================================== */
+
+    async function cambiarCamara() {
+
+        const selector =
+            document.getElementById(
+                "selectorCamara"
+            );
+
+        const nuevoId =
+            selector.value;
+
+        if (!nuevoId) {
+            return;
+        }
+
+        if (nuevoId === camaraActualId) {
+            return;
         }
 
         document.getElementById(
             "mensajeQR"
         ).innerHTML =
-            "📷 Cámara lista. Enfoca el código QR";
+            "🔄 Cambiando de cámara...";
 
-    } catch (error) {
+        QRProcesado = true;
 
-        console.error(
-            "Error iniciando cámara:",
-            error
-        );
+        /*
+         * Detener completamente la cámara actual.
+         */
+        if (scannerQR) {
 
-        scannerQR = null;
+            try {
+                await scannerQR.stop();
+            } catch (error) {
+                console.warn(
+                    "No se pudo detener correctamente la cámara:",
+                    error
+                );
+            }
 
+            scannerQR = null;
+        }
+
+        /*
+         * Limpiar el video anterior.
+         */
         document.getElementById(
-            "mensajeQR"
-        ).innerHTML =
-            "❌ No se pudo iniciar esta cámara.";
+            "lectorQR"
+        ).innerHTML = "";
+
+        /*
+         * Seleccionar la nueva cámara.
+         */
+        camaraActualId = nuevoId;
+
+        actualizarNombreCamara();
+
+        /*
+         * Dar un pequeño tiempo al navegador/celular
+         * para liberar la cámara anterior.
+         */
+        await new Promise(function(resolve) {
+            setTimeout(resolve, 350);
+        });
+
+        QRProcesado = false;
+
+        /*
+         * Iniciar la nueva cámara.
+         */
+        await iniciarScanner();
     }
-}
+
+
+    /* =====================================================
+       ENVIAR QR A APP SCRIPT
+    ===================================================== */
+
+    function enviarQR(textoQR) {
+
+
+        const parametros =
+            new URLSearchParams(
+                window.location.search
+            );
+
+
+        const origen =
+            parametros.get("origen") ||
+            "inicio";
+
+
+        /*
+         * Verificar ventana que abrió
+         * el escáner.
+         */
+
+        if (
+            window.opener &&
+            !window.opener.closed
+        ) {
+
+
+            window.opener.postMessage(
+
+                {
+
+                    tipo:
+                        "QR_ESCANEADO",
+
+                    texto:
+                        textoQR,
+
+                    origen:
+                        origen
+
+                },
+
+                "*"
+
+            );
+
+
+            /*
+             * Cerrar lector.
+             */
+
+            setTimeout(
+
+                function() {
+
+                    window.close();
+
+                },
+
+                300
+
+            );
+
+
+        }
+
+        else {
+
+
+            document.getElementById(
+                "mensajeQR"
+            ).innerHTML =
+
+                "⚠️ No se encontró la aplicación " +
+                "que abrió este lector.";
+
+        }
+
+    }
+
+
+    /* =====================================================
+       CERRAR SCANNER
+    ===================================================== */
+
+    async function cerrarScanner() {
+
+
+        if (scannerQR) {
+
+
+            try {
+
+                await scannerQR.stop();
+
+            }
+
+            catch (error) {
+
+                console.warn(
+                    "Error cerrando cámara:",
+                    error
+                );
+
+            }
+
+
+            scannerQR = null;
+
+
+        }
+
+
+        window.close();
+
+    }
+
+
+    /* =====================================================
+       CAMBIO DEL SELECTOR
+    ===================================================== */
+
+    document.getElementById(
+        "selectorCamara"
+    ).addEventListener(
+
+        "change",
+
+        async function() {
+
+            await cambiarCamara();
+
+        }
+
+    );
+
+
+    /* =====================================================
+       INICIAR AL CARGAR
+    ===================================================== */
+
+    window.addEventListener(
+
+        "load",
+
+        function() {
+
+            obtenerCamaras();
+
+        }
+
+    );
+
 
 </script>
+
+</body>
+
+</html>
